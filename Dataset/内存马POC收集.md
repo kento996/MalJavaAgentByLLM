@@ -15,7 +15,7 @@
 
    - 参考：https://github.com/datouo/CTF-Java-Gadget/blob/master/src/main/java/com/xiinnn/commonly/POJOJackson.java
 
-2. `DASCTFCBCTF2022_shell.java`
+2. `DASCTFCBCTF2022.java`
 
    - 参考：https://www.ctfiot.com/57949.html 的 JavaMaster 题目
    - 描述： `InjectToController` 利用 Spring MVC 机制，在运行时动态注册一个新的 Controller，使攻击者可以远程执行任意命令RCE，注入内存马。利用 `AbstractTranslet` 作为 Gadget，后续用于cc链攻击。
@@ -69,9 +69,53 @@
     - 参考：https://github.com/W01fh4cker/LearnJavaMemshellFromZero
     - 描述：基于Tomcat Executor内存马demo修改。劫持 Tomcat 的线程池，替换 Tomcat 的 `ThreadPoolExecutor`为自定义的`ThreadExecutor`，并在处理请求时注入恶意代码。在新线程执行任务时，检测请求数据是否包含特定关键字（“hacku”），如果检测到关键字，就解析并执行系统命令，命令执行结果会通过 HTTP 头部 `Result` 返回给攻击者。
 
+12. `ControllerBased.java`
+
+    Java Spring 环境下典型的 Controller 型内存马。它通过反射和 Spring Bean 注入机制，将恶意 Controller 动态加载并注册到现有 Web 应用中，监听新的 URL，实现持久化控制，且不会在磁盘上留下明显痕迹。
+
+13. `demo.java`
+
+    整个类的最终目的是通过构造特定的**反序列化对象链（Gadget）**，**实现命令执行**或**加载 agent（注入内存马）**，并通过 `Shiro` 的 RememberMe cookie 加密构造进行传输。
+
+14. `evil.java`
+
+    一种 **基于 ServletRequestListener 接口的内存 WebShell** 实现
+
+15. `EvilServlet.java`
+
+16. `FilterBasedBasic_2.java`
+
+17. `FilterBasedBasic_3.java`
+
+18. `FilterBasedBasic_4.java`
+
     
 
     
+
+    
+
+
+
+# 有可能是Java内存马
+
+1. `Attach.java`
+
+   该代码通过 Java Attach API 动态地将一个 agent JAR 文件（`EvilFilter.jar`）注入到运行中的目标 JVM（Java 虚拟机）进程中，目标是名称包含 `weblogic.Server` 的进程。
+
+2. 
+
+3. 
+
+   
+
+   
+
+
+
+
+
+
 
 # 反序列化
 
