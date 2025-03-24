@@ -1,0 +1,9 @@
+debug: true
+metric: true
+dumpClass: true
+dumpFolder: weaving/classes
+classPath: ""
+ignoreList:
+  - "net.bytebuddy"
+  - "java.arthas"
+
