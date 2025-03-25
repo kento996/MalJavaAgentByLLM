@@ -94,36 +94,60 @@ def main():
                         true_label = 1
                         total += 1
 
-                        prompt_function=f"""
-                        你是一位安全代码审计专家，如下是一段可能恶意或被恶意行为滥用的java代码片段，这段代码在做什么？请简要分析其代码的功能：
+                        prompt_function=prompt_function = f"""
+                        你是一位Java中间件安全专家，请分析以下代码的核心行为，按顺序检查：
+                        1. 是否通过反射/JNI/类加载器等机制动态修改中间件核心组件（如Tomcat的StandardContext、Spring的HandlerMapping）？
+                        2. 是否注册了未在配置文件中声明的Servlet/Filter/Listener/UpgradeProtocol等组件？
+                        3. 是否存在敏感操作（如命令执行、字节码注入）或隐蔽性设计（随机类名、无文件驻留）？
+
                         ## 代码
                         ```
                         {code}
                         ```
-                        ## 要求
-                        请输出一段简要的、50字以内的功能描述，强调是否动态注入类或组件，并强调该类或组件是否恶意或者存在恶意的可能性
+                        ## 输出要求
+                        用50字内回答，按此模板：
+                        【行为】动态注入： 组件类型（是/否），技术手段。【恶意可能性】原因。
+                        示例：【行为】动态注入Filter（是），反射修改Tomcat的StandardContext。【恶意可能性】无配置文件声明，可路由恶意请求。
                         """
                         functinDescription=client.generate(model=model_name, prompt=prompt_function)
                         
                         print(f"description {filename}:"+"-"*30)
                         print(functinDescription)
-                        print(f"description {filename}} end:"+"-"*30)
+                        print(f"description {filename} end:"+"-"*30)
                         for i in range(3):
                             print()
                         
                         prompt_malware_check=f"""
-                        Java内存马（或名Java Webshell）可以通过利用Java高级特性（继承、反射等）篡改Java应用组件（如Servlet、Filter、Interceptor等）、类加载器、中间件等，实现在运行时动态注入恶意代码。
-                        你是一位精通Java安全的分析专家，如下是一段java代码片段的功能描述和源代码，请你判断如下代码是否是Java内存马代码：
-                        **注意：存在恶意类的动态注入的即为内存马。可能本身并无直接恶意逻辑，但只要存在可能被用于恶意类或组件动态注入的潜在恶意用途的代码就可视作内存马**
-                        
-                        ## 代码
+                        **内存马判定规则（依次检查，满足任意一条即判定为是）**
+                        1. **动态注入中间件核心组件**：通过反射/Unsafe/Instrumentation等修改以下对象：
+                        - Tomcat: StandardContext、filterConfigs、ServletContainer
+                        - Spring: AbstractHandlerMapping、Controller类池
+                        - Jetty: ServletHandler、FilterHolder
+                        - 且注册的组件（类名/URL）未在配置文件中定义。
+
+                        2. **敏感行为载体**：注入的组件包含以下代码特征：
+                        - 解析请求参数（如`request.getParameter("cmd")`）
+                        - 动态加载类（`defineClass`/`ClassLoader`篡改）
+                        - 反射调用Runtime/ProcessBuilder等敏感类
+
+                        3. **隐蔽性设计**：符合以下任意一项：
+                        - 类名/路径随机化（如`filterName = "dynamic_" + System.nanoTime()`）
+                        - 无文件驻留（仅通过字节码操作在内存生成类）
+                        - 利用中间件漏洞（如JMX、JNDI）实现持久化
+
+                        **排除条件**（同时满足才不视为内存马）：
+                        - 组件类名在业务包路径下（如`com.company.*`）
+                        - 代码明确用于业务功能（如日志Filter、鉴权Servlet）
+
+                        ## 代码信息
+                        代码片段：
                         {code}
                         ## 功能描述
                         {functinDescription}
                         ## 常见的Java恶意代码片段（Java内存马可能会含有这些代码，当然也可能有其它未列出的方法）
                         {malware_API}
                         ## 要求
-                        如果该代码是Java内存马，**仅输出“是内存马”即可**，如果没有，**解释一下该代码为什么不是Java内存马**。
+                        严格应用上述规则，若符合1-3中任意一条且不满足排除条件，**必须回答“是内存马”**，否则解释原因。
                         """
                         
                         malwareCheck = client.generate(model=model_name, prompt=prompt_malware_check)
