@@ -118,10 +118,10 @@ def main():
                         {code}
                         ## 功能描述
                         {functinDescription}
-                        ## 常见的java恶意代码片段（Java内存马可能会含有这些代码，当然也可能有其它未列出的方法）
+                        ## 常见的Java恶意代码片段（Java内存马可能会含有这些代码，当然也可能有其它未列出的方法）
                         {malware_API}
                         ## 要求
-                        如果该代码是java内存马，**仅输出“是内存马”即可**，如果没有，**则仅输出“不是内存马”**。
+                        如果该代码是Java内存马，**仅输出“是内存马”即可**，如果没有，**解释一下改代码为什么不是Java内存马**。
                         """
                         malwareCheck = client.generate(model=model_name, prompt=prompt_malware_check)
                         print(f"{filename}: {malwareCheck}")
