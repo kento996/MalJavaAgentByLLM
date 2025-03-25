@@ -160,3 +160,4 @@
    - 描述：该代码是一个Java 反序列化漏洞（CommonsCollections 3 反序列化攻击链）的 PoC，主要利用 `TemplatesImpl`结合 Apache Commons Collections（CC3） 进行恶意代码执行。
 
    
+

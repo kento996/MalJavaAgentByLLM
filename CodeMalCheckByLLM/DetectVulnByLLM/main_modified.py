@@ -73,7 +73,7 @@ getDecoder().decode
 ```
 """
 def main():
-    model_name="qwen2.5:latest"
+    model_name="deepseek-r1:70b"
     client = OllamaClient()
     class_result_folder = "Dataset/EvilClasses"
     output_csv_path = "Dataset/output.csv"
@@ -175,7 +175,6 @@ def main():
             print(f"\n识别总数：{total}，识别正确：{correct}，准确率：{accuracy:.2%}")
         else:
             print("没有找到可识别的Java文件。")
-
 
 if __name__ == '__main__':
     main()
