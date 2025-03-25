@@ -7,8 +7,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from DetectVulnByLLM.llm.llm import OllamaClient
 
 malware_API="""
-如下是常见的一些可能会出现在恶意java利用脚本中的API：
-## 各种种类的内存马的重要实现过程
+如下是常见的一些可能会出现在Java内存马中的代码片段：
+## 各种种类的Java内存马的重要实现过程
 ```
 (StandardContext)
 .createWrapper()
@@ -25,7 +25,7 @@ httpUpgradeProtocols
 addAfterServiceListener
 .addServletMappingDecoded(
 ```
-## 恶意逻辑会用到的API
+## 恶意逻辑会用到的API（注：可能不会出现在内存马注入的逻辑中）
 ```
 getRuntime().exec(
 ProcessBuilder.start
@@ -43,6 +43,22 @@ MultipartHttpServletRequest
 .getFileSuffix(
 .getFile
 MultipartFile
+```
+## Java内存马代码可能会使用的逻辑
+```
+.getParameter(
+.getSuperclass()
+.exec(
+.addMessageHandler(
+.invoke(
+.getName().equals("system")
+org.apache.coyote.Request.
+Runtime.getRuntime()
+.currentThread().getThreadGroup()
+(SocketWrapperBase)
+.addShutdownHook(
+.getBasicRemote()
+.Base64.
 ```
 """
 def main():
@@ -68,7 +84,7 @@ def main():
                         total += 1
 
                         prompt_function=f"""
-                        你是一位安全代码审计专家，如下是一段java代码片段，请你简要分析其代码的功能：
+                        你是一位安全代码审计专家，如下是一段java代码片段，这段代码在做什么？请简要分析其代码的功能：
                         ## 代码
                         ```
                         {code}
@@ -78,17 +94,17 @@ def main():
                         """
                         functinDescription=client.generate(model=model_name, prompt=prompt_function)
                         prompt_malware_check=f"""
-                        内存马是指通过类加载器、反射、动态代理、Servlet 过滤器、监听器等技术，在不落地文件的情况下，在服务器内存中建立持久化控制通道的恶意代码。
+                        Java内存马是一种驻留在内存中的恶意后门程序，通过利用Java高级特性（继承、反射等）篡改Java应用组件（如Servlet、Filter、Interceptor等）、类加载器、中间件等，实现在运行时动态注入恶意代码。
                         你是一位精通Java安全的分析专家，如下是一段java代码片段的功能描述和源代码，请你判断如下代码是否是Java内存马代码：
                         ：
                         ## 代码
                         {code}
                         ## 功能描述
                         {functinDescription}
-                        ## 常见的java恶意API
+                        ## 常见的java恶意代码片段
                         {malware_API}
                         ## 要求
-                        如果你觉得代码是java内存马，仅输出“是内存马”即可，如果没有则仅输出“不是内存马”。
+                        如果该代码是java内存马，**仅输出“是内存马”即可**，如果没有，**则仅输出“不是内存马”**。
                         """
                         malwareCheck = client.generate(model=model_name, prompt=prompt_malware_check)
                         print(f"{filename}: {malwareCheck}")
