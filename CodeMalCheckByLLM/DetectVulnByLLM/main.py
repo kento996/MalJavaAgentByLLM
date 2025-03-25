@@ -107,7 +107,7 @@ def main():
                         
                         print(f"description {filename}:"+"-"*30)
                         print(functinDescription)
-                        print(f"description {filename}} end:"+"-"*30)
+                        print(f"description {filename} end:"+"-"*30)
                         for i in range(3):
                             print()
                         

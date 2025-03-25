@@ -6,7 +6,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from DetectVulnByLLM.llm.llm import OllamaClient
 
 def main():
-    model_name="qwen2.5:latest"
+    # model_name="qwen2.5:latest"
+    model_name="deepseek-r1:70b"
     client = OllamaClient()
     class_result_folder = "Dataset/EvilClasses"
     output_csv_path = "Dataset/BaselineOutput.csv"
