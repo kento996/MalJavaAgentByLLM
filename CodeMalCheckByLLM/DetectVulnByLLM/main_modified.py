@@ -119,7 +119,7 @@ def main():
                         
                         prompt_malware_check=f"""
                         **内存马判定规则（依次检查，满足任意一条即判定为是）**
-                        1. **动态注入中间件核心组件**：通过反射/Unsafe/Instrumentation等修改以下对象：
+                        1. **动态注入中间件核心组件**：通过反射/Unsafe/Instrumentation等修改包括但不限于以下对象：
                         - Tomcat: StandardContext、filterConfigs、ServletContainer
                         - Spring: AbstractHandlerMapping、Controller类池
                         - Jetty: ServletHandler、FilterHolder
@@ -144,7 +144,7 @@ def main():
                         {code}
                         ## 功能描述
                         {functinDescription}
-                        ## 常见的Java恶意代码片段（Java内存马可能会含有这些代码，当然也可能有其它未列出的方法）
+                        ## 常见的一系列Java恶意代码片段
                         {malware_API}
                         ## 要求
                         严格应用上述规则，若符合1-3中任意一条且不满足排除条件，**必须回答“是内存马”**，否则解释原因。
