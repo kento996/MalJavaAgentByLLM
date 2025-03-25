@@ -14,7 +14,6 @@ malware_API="""
 .createWrapper()
 .addFilterDef(
 .addURLPattern(
-.addFilterMapBefore(
 (WebApplicationContext)
 .registerMapping(
 adaptedInterceptors.
@@ -24,8 +23,17 @@ httpUpgradeProtocols
 .setExecutor(
 addAfterServiceListener
 .addServletMappingDecoded(
+.loadAgent(
+.detach(
+addFilterMapBefore
+addMappingForUrlPatterns
+filterPatternList
+prependFilterMapping
+getFilterMappings
+ApplicationServletRegistration
+addServlet
 ```
-## 恶意逻辑会用到的API（注：可能不会出现在内存马注入的逻辑中）
+## 恶意逻辑会用到的代码片段（注：该这些片段可能不会出现在内存马注入的逻辑中）
 ```
 getRuntime().exec(
 ProcessBuilder.start
@@ -43,6 +51,8 @@ MultipartHttpServletRequest
 .getFileSuffix(
 .getFile
 MultipartFile
+/bin/sh
+/bin/bash
 ```
 ## Java内存马代码可能会使用的逻辑
 ```
@@ -59,6 +69,7 @@ Runtime.getRuntime()
 .addShutdownHook(
 .getBasicRemote()
 .Base64.
+getDecoder().decode
 ```
 """
 def main():
@@ -84,7 +95,7 @@ def main():
                         total += 1
 
                         prompt_function=f"""
-                        你是一位安全代码审计专家，如下是一段java代码片段，这段代码在做什么？请简要分析其代码的功能：
+                        你是一位安全代码审计专家，如下是一段可能恶意的java代码片段，这段代码在做什么？请简要分析其代码的功能：
                         ## 代码
                         ```
                         {code}
@@ -93,15 +104,20 @@ def main():
                         请输出一段50字以内的功能描述
                         """
                         functinDescription=client.generate(model=model_name, prompt=prompt_function)
+                        
+                        print("description 1:"+"-"*30)
+                        print(functinDescription)
+                        print("description 1 end:"+"-"*30)
+                        
                         prompt_malware_check=f"""
-                        Java内存马是一种驻留在内存中的恶意后门程序，通过利用Java高级特性（继承、反射等）篡改Java应用组件（如Servlet、Filter、Interceptor等）、类加载器、中间件等，实现在运行时动态注入恶意代码。
+                        Java内存马（或名Java Webshell）是一种驻留在内存中的恶意后门程序，通过利用Java高级特性（继承、反射等）篡改Java应用组件（如Servlet、Filter、Interceptor等）、类加载器、中间件等，实现在运行时动态注入恶意代码。
                         你是一位精通Java安全的分析专家，如下是一段java代码片段的功能描述和源代码，请你判断如下代码是否是Java内存马代码：
                         ：
                         ## 代码
                         {code}
                         ## 功能描述
                         {functinDescription}
-                        ## 常见的java恶意代码片段
+                        ## 常见的java恶意代码片段（Java内存马可能会含有这些代码，当然也可能有其它未列出的方法）
                         {malware_API}
                         ## 要求
                         如果该代码是java内存马，**仅输出“是内存马”即可**，如果没有，**则仅输出“不是内存马”**。
