@@ -105,13 +105,15 @@ def main():
                         """
                         functinDescription=client.generate(model=model_name, prompt=prompt_function)
                         
-                        print("description 1:"+"-"*30)
+                        print(f"description {filename}:"+"-"*30)
                         print(functinDescription)
-                        print("description 1 end:"+"-"*30)
+                        print(f"description {filename}} end:"+"-"*30)
+                        for i in range(3):
+                            print()
                         
                         prompt_malware_check=f"""
                         Java内存马（或名Java Webshell）是一种驻留在内存中的程序，通过利用Java高级特性（继承、反射等）篡改Java应用组件（如Servlet、Filter、Interceptor等）、类加载器、中间件等，实现在运行时动态注入恶意代码。
-                        **注意：存在恶意类的动态注入即为内存马**
+                        **注意：存在恶意类的动态注入的即为内存马，无直接恶意逻辑，但存在可能被用于恶意类或恶意逻辑动态注入的潜在恶意用途的代码也可视作内存马**
                         你是一位精通Java安全的分析专家，如下是一段java代码片段的功能描述和源代码，请你判断如下代码是否是Java内存马代码：
                         ：
                         ## 代码
