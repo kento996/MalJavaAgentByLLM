@@ -5,152 +5,134 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from DetectVulnByLLM.llm.llm import OllamaClient
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+import re
 
-malware_API="""
-如下是常见的一些可能会出现在Java内存马中的代码片段：
-## 各种种类的Java内存马的重要实现过程
-```
-(StandardContext)
-.createWrapper()
-.addFilterDef(
-.addURLPattern(
-(WebApplicationContext)
-.registerMapping(
-adaptedInterceptors.
-DefaultWebFilterChain(
-(StandardPipeline)
-httpUpgradeProtocols
-.setExecutor(
-addAfterServiceListener
-.addServletMappingDecoded(
-.loadAgent(
-.detach(
-addFilterMapBefore
-addMappingForUrlPatterns
-filterPatternList
-prependFilterMapping
-getFilterMappings
-ApplicationServletRegistration
-addServlet
-```
-## 恶意逻辑会用到的代码片段（注：该这些片段可能不会出现在内存马注入的逻辑中）
-```
-getRuntime().exec(
-ProcessBuilder.start
-RuntimeUtil.exec(
-RuntimeUtil.execForStr(
-System.getProperty(
-Streams.copy(
-.getOriginalFilename(
-.transferTo(
-UploadedFile(
-FileUtils.copyFile(
-MultipartHttpServletRequest
-.getFileName(
-.saveAs(
-.getFileSuffix(
-.getFile
-MultipartFile
-/bin/sh
-/bin/bash
-```
-## Java内存马代码可能会使用的逻辑
-```
-.getParameter(
-.getSuperclass()
-.exec(
-.addMessageHandler(
-.invoke(
-.getName().equals("system")
-org.apache.coyote.Request.
-Runtime.getRuntime()
-.currentThread().getThreadGroup()
-(SocketWrapperBase)
-.addShutdownHook(
-.getBasicRemote()
-.Base64.
-getDecoder().decode
-```
-"""
+def load_malicious_api_patterns(filepath):
+    patterns = []
+    with open(filepath, 'r', encoding='utf-8') as f:
+        for line in f:
+            raw = line.strip()
+            if raw and not raw.startswith("#"):
+                regex = re.escape(raw)
+                patterns.append((raw, regex))  # 原始 + 转义形式
+    return patterns
+
+
+def analyze_code(file_path, client, model_name, api_patterns):
+    with open(file_path, 'r', encoding='utf-8') as file:
+        code = file.read()
+
+        # 🚨 匹配恶意 API
+        matched_apis = []
+        for raw, regex in api_patterns:
+            if re.search(regex, code):
+                matched_apis.append(raw)  # 命中记录原始API文本
+
+        if matched_apis:
+            print(f"[!] {os.path.basename(file_path)} 命中恶意API:")
+            for api in matched_apis:
+                print(f"    - {api}")
+
+        matched_api_text = "\n".join(f"- {api}" for api in matched_apis) if matched_apis else "无"
+
+        prompt_function=f"""         
+        你是一位安全代码审计专家，如下是一段java代码片段，请你简要分析其代码的功能：
+        ## 代码
+        ```
+        {code}
+        ```
+        ## 要求
+        请输出一段50字以内的功能描述
+        """
+        functinDescription=client.generate(model=model_name, prompt=prompt_function)
+        prompt_malware_check=f"""
+        内存马是指通过类加载器、反射、动态代理、Servlet 过滤器、监听器等技术，在不落地文件的情况下，在服务器内存中建立持久化控制通道的恶意代码。
+        你是一位精通Java安全的分析专家，如下是一段java代码片段的功能描述和源代码，请你判断如下代码是否是Java内存马代码：
+        ## 代码
+        {code}
+        ##功能描述
+        {functinDescription}
+        ## 命中的可疑 API
+        以下是在源码中通过静态规则匹配到的可疑 Java API，用于辅助你判断：
+        {matched_api_text}
+        ##要求
+        如果你觉得代码是java内存马，仅输出“是内存马”即可，如果没有则仅输出“不是内存马”。
+        """
+
+        result = client.generate(model=model_name, prompt=prompt_malware_check)
+        print(f"{os.path.basename(file_path)}: {result}")
+
+        if re.search(r'不是\s*(Java)?\s*内存马', result, re.IGNORECASE):
+            llm_result = 0
+        elif re.search(r'是\s*(Java)?\s*内存马', result, re.IGNORECASE):
+            llm_result = 1
+        else:
+            llm_result = -1
+
+        print("----------------------------------------")
+
+
+        return llm_result
+    
+
+
+def process_folder(folder_path, label, client, model_name, csv_writer, y_true, y_pred, api_patterns):
+    for filename in os.listdir(folder_path):
+        if filename.endswith(".java") or filename.endswith(".jsp"):
+            file_path = os.path.join(folder_path, filename)
+            try:
+                pred = analyze_code(file_path, client, model_name, api_patterns)
+                y_true.append(label)
+                y_pred.append(pred)
+                csv_writer.writerow([filename, label, pred])
+            except Exception as e:
+                print(f"[ERROR] 处理 {filename} 失败: {e}")
+
+
 def main():
-    model_name="qwen2.5:latest"
-    client = OllamaClient()
-    class_result_folder = "Dataset/EvilClasses"
-    output_csv_path = "Dataset/output.csv"
+    model_name = "llama3:8b-instruct-q8_0"
+    version = "Enhanced"
+    safe_model_name = re.sub(r'[:\.]', '_', model_name)
+    output_csv_path = f"Dataset/output/{safe_model_name}_{version}Output.csv"
+    
+    evil_result_folder = "Dataset/EvilClasses"
+    simple_result_folder = "Dataset/SimpleCode"
+    malicious_api_path = "CodeMalCheckByLLM/DetectVulnByLLM/malicious_apis.txt"
 
-    total = 0
-    correct = 0
+    client = OllamaClient()
+
+    # 加载恶意API特征
+    api_patterns = load_malicious_api_patterns(malicious_api_path)
+
+    y_true = []
+    y_pred = []
 
     with open(output_csv_path, mode='w', newline='', encoding='utf-8') as csvfile:
         csv_writer = csv.writer(csvfile)
         csv_writer.writerow(['文件名', '标签', 'LLM判断结果'])
 
-        for filename in os.listdir(class_result_folder):
-            if filename.endswith(".java") or filename.endswith(".jsp"):
-                with open(os.path.join(class_result_folder, filename), 'r',encoding='utf-8') as file:
-                    try:
-                        code = file.read()
-                        # 默认所有样本为内存马
-                        true_label = 1
-                        total += 1
+        process_folder(evil_result_folder, 1, client, model_name, csv_writer, y_true, y_pred, api_patterns)
+        process_folder(simple_result_folder, 0, client, model_name, csv_writer, y_true, y_pred, api_patterns)
 
-                        prompt_function=f"""
-                        你是一位安全代码审计专家，如下是一段可能恶意或被恶意行为滥用的java代码片段，这段代码在做什么？请简要分析其代码的功能：
-                        ## 代码
-                        ```
-                        {code}
-                        ```
-                        ## 要求
-                        请输出一段简要的、50字以内的功能描述，强调是否动态注入类或组件，并强调该类或组件是否恶意或者存在恶意的可能性
-                        """
-                        functinDescription=client.generate(model=model_name, prompt=prompt_function)
-                        
-                        print(f"description {filename}:"+"-"*30)
-                        print(functinDescription)
-                        print(f"description {filename} end:"+"-"*30)
-                        for i in range(3):
-                            print()
-                        
-                        prompt_malware_check=f"""
-                        Java内存马（或名Java Webshell）可以通过利用Java高级特性（继承、反射等）篡改Java应用组件（如Servlet、Filter、Interceptor等）、类加载器、中间件等，实现在运行时动态注入恶意代码。
-                        你是一位精通Java安全的分析专家，如下是一段java代码片段的功能描述和源代码，请你判断如下代码是否是Java内存马代码：
-                        **注意：存在恶意类的动态注入的即为内存马。可能本身并无直接恶意逻辑，但只要存在可能被用于恶意类或组件动态注入的潜在恶意用途的代码就可视作内存马**
-                        
-                        ## 代码
-                        {code}
-                        ## 功能描述
-                        {functinDescription}
-                        ## 常见的Java恶意代码片段（Java内存马可能会含有这些代码，当然也可能有其它未列出的方法）
-                        {malware_API}
-                        ## 要求
-                        如果该代码是Java内存马，**仅输出“是内存马”即可**，如果没有，**解释一下该代码为什么不是Java内存马**。
-                        """
-                        
-                        malwareCheck = client.generate(model=model_name, prompt=prompt_malware_check)
-                        print(f"{filename}: {malwareCheck}")
+    # 过滤掉未能判断的结果（-1）
+    filtered = [(t, p) for t, p in zip(y_true, y_pred) if p != -1]
+    if not filtered:
+        print("没有有效的检测结果")
+        return
 
-                        if re.search(r'不是\s*内存马', malwareCheck):
-                            llm_result = 0
-                        elif re.search(r'是\s*内存马', malwareCheck):
-                            llm_result = 1
-                        else:
-                            llm_result = "-1"
+    y_true_filtered, y_pred_filtered = zip(*filtered)
 
-                        if llm_result == true_label:
-                            correct += 1
+    acc = accuracy_score(y_true_filtered, y_pred_filtered)
+    precision = precision_score(y_true_filtered, y_pred_filtered)
+    recall = recall_score(y_true_filtered, y_pred_filtered)
+    f1 = f1_score(y_true_filtered, y_pred_filtered)
 
-                        # 写入 CSV 行
-                        csv_writer.writerow([filename, 1, llm_result])
-
-                        
-                    except Exception as e:
-                        print(e)
-
-        if total > 0:
-            accuracy = correct / total
-            print(f"\n识别总数：{total}，识别正确：{correct}，准确率：{accuracy:.2%}")
-        else:
-            print("没有找到可识别的Java文件。")
+    print(f"\n总文件数: {len(y_true)}，有效识别数: {len(filtered)}")
+    print(f"准确率 (Accuracy): {acc:.2%}")
+    print(f"精确率 (Precision): {precision:.2%}")
+    print(f"召回率 (Recall): {recall:.2%}")
+    print(f"F1 分数: {f1:.2%}")
 
 
 if __name__ == '__main__':
